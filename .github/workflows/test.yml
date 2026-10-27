@@ -1,0 +1,28 @@
+name: Test generated Egg
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq unzip
+      - name: Check generated Egg
+        run: npm run check
+      - name: Check shell syntax
+        run: |
+          sh -n src/profile-launcher.sh
+          sh -n src/install.sh
+      - name: Test generated launcher and installer
+        run: npm test

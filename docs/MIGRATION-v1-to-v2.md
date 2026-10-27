@@ -30,7 +30,7 @@ servers/
 SERVER_PROFILE=survival
 ```
 
-선택적으로 `panel-patch/`를 설치하면 이 값을 직접 입력하지 않고 `/servers` 폴더 기반 동적 드롭다운으로 선택할 수 있습니다.
+v2.2.0에서 실험용 Panel 패치와 동적 드롭다운은 제거되었습니다. Startup에서 프로필 폴더명을 직접 입력합니다.
 
 ## Java
 
@@ -51,3 +51,5 @@ v2의 프로필 백업은 다음 위치에 별도로 저장됩니다.
 ```
 
 Pterodactyl 기본 Backups 탭과는 별개의 기능입니다.
+
+기존 `profile.conf`에 `BACKUP_ON_SWITCH` 또는 `BACKUP_KEEP`이 있으면 해당 값이 우선합니다. 전역 설정을 상속하려면 그 줄을 주석 처리하거나 제거하세요. 복원 방법은 [프로필 백업 복원](RESTORE.md)을 참고하세요.

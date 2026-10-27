@@ -125,12 +125,16 @@ SERVER_SCRIPT=run.sh
 JAVA_ARGS=
 XMS_MB=128
 MEMORY_PERCENT=95
-BACKUP_ON_SWITCH=true
-BACKUP_KEEP=5
+# BACKUP_ON_SWITCH=true
+# BACKUP_KEEP=5
 BACKUP_EXCLUDE_LOGS=true
 ```
 
 대부분은 `auto` 상태로 두면 됩니다. 자동 감지가 어려운 값만 직접 지정하면 됩니다.
+
+주석 처리된 백업 키는 Startup의 `AUTO_BACKUP_ON_SWITCH`와 `BACKUP_KEEP`을 상속합니다. 주석을 해제하면 해당 프로필에만 적용됩니다. 기존 `profile.conf`의 명시 설정은 자동으로 변경하지 않습니다.
+
+버전 감지는 명시한 `MINECRAFT_VERSION` → 선택한 JAR의 `version.json` → JAR 이름 → 로그 → 캐시/라이브러리 순서입니다. 캐시나 라이브러리에서 여러 버전이 발견되면 `MINECRAFT_VERSION`을 직접 지정해야 합니다.
 
 ## Java 자동 선택
 
@@ -170,6 +174,8 @@ Memory=4096
 
 운영 환경에서는 다른 서버/프로세스를 보호하기 위해 Pterodactyl Memory Limit을 명시적으로 지정하는 것을 권장합니다.
 
+Forge/NeoForge의 `LAUNCH_MODE=script`에서는 HotSpot의 `_JAVA_OPTIONS`로 `XMS_MB`, `MEMORY_PERCENT`, `JAVA_ARGS`를 전달합니다. 기존 환경 옵션을 유지하면서 프로필 옵션을 뒤에 추가하므로, 표준 실행 스크립트와 `user_jvm_args.txt`의 중복 JVM 옵션보다 프로필 설정이 우선합니다. 실행 스크립트와 인수 파일의 내용은 변경하지 않습니다. 환경 변수를 지우거나 Java 절대 경로를 별도로 지정하는 커스텀 스크립트는 직접 확인해야 합니다.
+
 ## 자동 백업
 
 프로필을 전환하면 이전 프로필을 자동으로 백업할 수 있습니다.
@@ -192,6 +198,24 @@ mcs → default
 `BACKUP_KEEP=5`라면 프로필별 최신 5개를 유지합니다.
 
 이 백업은 Pterodactyl 기본 `Backups` 탭과 별도의 `.tar.gz` 파일입니다.
+
+`BACKUP_KEEP=0`은 개수 제한 없이 보관합니다. 복원 절차는 [프로필 백업 복원](docs/RESTORE.md)을 참고하세요.
+
+## 진단 실행
+
+컨테이너 셸에서 `MULTI_DRY_RUN=true sh /home/container/profile-launcher.sh`를 실행하면 선택한 프로필, 버전, Java와 메모리 계획을 확인합니다. 설정·EULA·백업·활성 프로필 상태를 변경하지 않으며 Java 다운로드와 서버 실행도 생략합니다. `SERVER_PROFILE`, `SERVER_PORT` 등 기존 실행 환경 변수가 필요합니다.
+
+## 수정판 적용과 다운로드 검증
+
+이 브랜치의 변경은 v2.2.0에 대한 미출시 수정 사항입니다. Egg 파일명은 기존 Import 경로를 유지합니다.
+
+새 서버는 수정된 Egg를 Import한 뒤 생성합니다. 기존 서버에서는 Egg Import만으로 설치된 `profile-launcher.sh`가 바뀌지 않습니다. 서버를 정지하고 파일을 백업한 뒤 `src/profile-launcher.sh`를 `/home/container/profile-launcher.sh`에 업로드하면 런처 수정이 적용됩니다. 설치기 변경은 이후 설치/재설치 작업에 적용됩니다. 재설치 전에는 서버 전체를 별도로 백업하세요.
+
+기존 `profile.conf`의 `BACKUP_ON_SWITCH`와 `BACKUP_KEEP`을 전역 설정에 맡기려면 해당 줄을 주석 처리하거나 제거하세요.
+
+초기 Paper 다운로드는 공식 API의 SHA-256과 ZIP 무결성을 검사한 뒤 `server.jar`로 옮깁니다. 관리자 전용 `DL_PATH`에는 선택적으로 `DL_SHA256`을 지정할 수 있습니다. 커스텀 URL에 체크섬을 지정하지 않으면 ZIP 무결성만 검사합니다. 커스텀 URL과 `MINECRAFT_VERSION=latest`를 함께 쓰면 버전은 `auto`로 남겨 실제 파일에서 감지합니다.
+
+개발 및 검증 방법은 [기여 가이드](CONTRIBUTING.md)를 참고하세요.
 
 ## 대용량 파일 업로드: Launch SFTP + WinSCP
 
@@ -222,7 +246,7 @@ PowerShell의 `sftp`/`scp`도 사용할 수 있지만, 서버 파일을 자주 �
 
 ## 실제 Pterodactyl 환경 테스트
 
-v2.2.0은 실제 환경에서 다음을 확인했습니다.
+기존 v2.2.0 릴리스에서 실제 환경으로 확인한 항목입니다. 이 브랜치의 수정 사항은 자동 검사와 별도로 실제 Pterodactyl 재검증이 필요합니다.
 
 - 최종 Egg 신규 실행
 - `Memory=0` Unlimited 처리

@@ -1,5 +1,18 @@
 # 변경 내역
 
+## Unreleased
+
+- Fabric/Paperclip JAR 후보 중복 집계 수정
+- Forge/NeoForge script 모드에 프로필 JVM 옵션 전달
+- 신규 profile.conf가 전역 백업 설정을 상속하도록 수정
+- dry-run에서 설정·EULA·백업·활성 상태 변경 제거
+- 실행 JAR 메타데이터 우선 감지와 다중 캐시/라이브러리 버전 차단
+- 초기 JAR 다운로드의 임시 파일·SHA-256·ZIP 검증 및 실패 정리
+- 실행기/설치기 소스 분리, Egg 생성 도구와 회귀 검사/CI 추가
+- 제거된 Panel 패치 안내 정리와 백업 복원 안내 추가
+
+자동 검사 통과 여부와 실제 Pterodactyl/Minecraft 검증은 별도로 기록합니다.
+
 ## v2.2.0
 
 - 한글/Unicode 프로필 이름 지원 추가
