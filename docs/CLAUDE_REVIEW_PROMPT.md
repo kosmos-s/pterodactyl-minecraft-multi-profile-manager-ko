@@ -2,6 +2,7 @@
 
 저장소: https://github.com/kosmos-s/pterodactyl-minecraft-multi-profile-manager-ko
 수정 브랜치: fix/launcher-reliability
+PR: https://github.com/kosmos-s/pterodactyl-minecraft-multi-profile-manager-ko/pull/1
 비교 기준: 79d6f13405d14fdaa451cda312f270800d5ef498
 비교 범위: 기준 커밋부터 수정 브랜치 HEAD까지의 전체 diff
 

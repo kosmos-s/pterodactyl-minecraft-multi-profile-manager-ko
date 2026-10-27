@@ -102,6 +102,22 @@ test('current JAR metadata outranks old logs and version caches',t=>{
 test('Korean profile names still launch',t=>{
   const f=fixture(t);profile(f,'마크서버');const r=run(f,'마크서버');ok(r);assert.match(r.output,/마크서버/);
 });
+test('ambiguous Forge library Minecraft versions are rejected',t=>{
+  const f=fixture(t),dir=profile(f,'test','MINECRAFT_VERSION=auto\nJAVA_VERSION=auto\n');
+  for(const v of ['1.20.1-47.4.0','1.21.1-52.1.0']) fs.mkdirSync(path.join(dir,'libraries','net','minecraftforge','forge',v),{recursive:true});
+  const r=run(f);assert.notEqual(r.status,0);assert.match(r.output,/Multiple library Minecraft versions/);
+});
+test('different Forge builds of one Minecraft version are unambiguous',t=>{
+  const f=fixture(t),dir=profile(f,'test','MINECRAFT_VERSION=auto\nJAVA_VERSION=auto\n');
+  for(const v of ['1.20.1-47.3.0','1.20.1-47.4.0']) fs.mkdirSync(path.join(dir,'libraries','net','minecraftforge','forge',v),{recursive:true});
+  const r=run(f);ok(r);assert.match(r.output,/Minecraft version:\s+1.20.1/);
+});
+test('current JAR metadata outranks conflicting library caches',t=>{
+  const f=fixture(t),dir=profile(f,'test','MINECRAFT_VERSION=auto\nJAVA_VERSION=auto\n');
+  zip(path.join(dir,'server.jar'),'version.json','{"id":"1.21.1"}');
+  for(const v of ['1.20.1-47.4.0','1.21.1-52.1.0']) fs.mkdirSync(path.join(dir,'libraries','net','minecraftforge','forge',v),{recursive:true});
+  const r=run(f);ok(r);assert.match(r.output,/Minecraft version:\s+1.21.1/);
+});
 test('missing profile fails before creating state or properties',t=>{
   const f=fixture(t),before=snapshot(f.root);const r=run(f,'missing');
   assert.notEqual(r.status,0);assert.deepEqual(snapshot(f.root),before);

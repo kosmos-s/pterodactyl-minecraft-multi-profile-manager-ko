@@ -22,6 +22,31 @@ test('interrupted download never becomes server.jar and temporary data is cleane
 test('HTML returned by a custom download URL is rejected',t=>{
   const f=setup(t),r=install(f,{CURL_MODE:'invalid'});assert.notEqual(r.status,0);noFinalJar(f);
 });
+test('CRC-corrupt ZIP content is rejected before promotion',t=>{
+  const f=setup(t),bytes=fs.readFileSync(f.env.FIXTURE_JAR);
+  bytes[42]^=1;fs.writeFileSync(f.env.FIXTURE_JAR,bytes);
+  const r=install(f);assert.notEqual(r.status,0);noFinalJar(f);
+});
+test('TERM during download cleans the temporary file',{skip:process.platform==='win32'?'POSIX process groups are covered in Linux CI':false},async t=>{
+  const f=setup(t);
+  const child=cp.spawn(process.env.SH_BIN||'sh',[posix(path.join(f.root,'installer.sh'))],{env:{...f.env,CURL_MODE:'wait'},detached:true,stdio:'ignore'});
+  const closed=new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(code,signal)=>resolve({code,signal}));});
+  let killed=false;
+  try {
+    const dest=path.join(f.root,'servers','default');
+    const deadline=Date.now()+5000;
+    while(Date.now()<deadline) {
+      if(fs.existsSync(dest)&&fs.readdirSync(dest).some(n=>n.includes('.download')&&fs.statSync(path.join(dest,n)).size>0)) break;
+      await new Promise(resolve=>setTimeout(resolve,20));
+    }
+    assert.equal(fs.readdirSync(dest).some(n=>n.includes('.download')&&fs.statSync(path.join(dest,n)).size>0),true);
+    process.kill(-child.pid,'SIGTERM');killed=true;
+    const result=await closed;assert.notEqual(result.code,0);noFinalJar(f);
+    assert.equal(fs.readdirSync(dest).some(n=>n.includes('.download')),false);
+  } finally {
+    if(!killed) {try {process.kill(-child.pid,'SIGTERM');} catch(error) {if(error.code!=='ESRCH') throw error;} await closed;}
+  }
+});
 test('checksum mismatch blocks promotion of a valid custom JAR',t=>{
   const f=setup(t),r=install(f,{DL_SHA256:'0'.repeat(64)});assert.notEqual(r.status,0);noFinalJar(f);
 });

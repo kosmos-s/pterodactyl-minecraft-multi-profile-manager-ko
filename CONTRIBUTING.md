@@ -31,7 +31,7 @@ npm run check
 npm test
 ```
 
-테스트는 POSIX sh, tar, unzip, sha256sum, jq를 사용합니다. `SH_BIN`으로 셸 경로를 지정할 수 있습니다. Windows에서는 Git의 sh와 기본 tar를 사용하며, 테스트에 한해 ZIP/해시/권한 명령을 보완합니다. jq가 없는 환경에서는 공식 API 응답 검사 두 개가 skip됩니다. Linux CI에서는 실제 도구로 전체를 실행합니다.
+테스트는 POSIX sh, tar, unzip, sha256sum, jq를 사용합니다. `SH_BIN`으로 셸 경로를 지정할 수 있습니다. Windows에서는 Git의 sh와 기본 tar를 사용하며, 테스트에 한해 ZIP/해시/권한 명령을 보완합니다. jq가 없는 환경에서는 공식 API 응답 검사 두 개가, Windows에서는 POSIX 종료 신호 검사 한 개가 skip됩니다. Linux CI에서는 실제 도구로 전체를 실행합니다.
 
 실제 JVM 검사에는 `JAVA_BIN_REAL`에 Java 실행 파일의 절대 경로를 지정하거나 `JAVA_HOME`을 설정하세요. 이 검사는 JVM 옵션 적용을 확인하며 Minecraft 서버 구동을 대신하지 않습니다.
 
