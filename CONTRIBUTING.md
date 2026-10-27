@@ -31,8 +31,12 @@ npm run check
 npm test
 ```
 
-테스트는 POSIX sh, tar, unzip, sha256sum, jq를 사용합니다. `SH_BIN`으로 셸 경로를 지정할 수 있습니다. Windows에서는 Git의 sh와 기본 tar를 사용하며, 테스트에 한해 ZIP/해시/권한 명령을 보완합니다. jq가 없는 환경에서는 공식 API 응답 검사 두 개가, Windows에서는 POSIX 종료 신호 검사 한 개가 skip됩니다. Linux CI에서는 실제 도구로 전체를 실행합니다.
+테스트는 POSIX sh, tar, Info-ZIP unzip, sha256sum, jq를 사용합니다. `SH_BIN`으로 셸 경로를 지정할 수 있습니다. Windows에서는 Git의 sh와 기본 tar를 사용하며, 테스트에 한해 ZIP/해시/권한 명령을 보완합니다. jq가 없는 환경에서는 공식 API 응답 검사 두 개가, Windows에서는 POSIX 종료 신호 검사가 skip됩니다.
 
 실제 JVM 검사에는 `JAVA_BIN_REAL`에 Java 실행 파일의 절대 경로를 지정하거나 `JAVA_HOME`을 설정하세요. 이 검사는 JVM 옵션 적용을 확인하며 Minecraft 서버 구동을 대신하지 않습니다.
+
+unzip 없는 환경의 실제 JDK fallback 검사는 `JAR_BIN_REAL` 또는 `JAVA_HOME/bin/jar`를 사용합니다. 테스트는 PATH를 제한하고 원래 도구를 실행하며, 모의 JSON 추출기로 대체하지 않습니다.
+
+CI는 Ubuntu 전체 검사 외에 `ghcr.io/pterodactyl/yolks:java_25`에서 unzip을 추가하지 않은 런처 검사와 `ghcr.io/pterodactyl/installers:alpine`에서 BusyBox ash 기반 설치기 검사를 실행합니다. Alpine 컨테이너에는 검사 실행용 Node.js만 먼저 추가하고, Info-ZIP은 실제 설치기 코드가 확보하도록 합니다.
 
 생성된 Egg도 함께 커밋해야 합니다. GitHub Actions는 소스와 Egg 일치, 셸 구문, 동작 검사를 수행합니다. 실제 서버 검증에는 Panel/Wings 버전, 서버 종류와 Java 버전, 프로필 전환·정상 종료·복원·클라이언트 접속 결과를 기록하세요.

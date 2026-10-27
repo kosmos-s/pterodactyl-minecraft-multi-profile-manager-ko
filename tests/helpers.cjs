@@ -4,7 +4,7 @@ const cp = require('node:child_process');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const repo = path.resolve(__dirname, '..');
-const eggPath = path.join(repo, 'egg/egg-minecraft-multi-profile-manager-v2.2.0.json');
+const eggPath = path.join(repo, 'egg/egg-minecraft-multi-profile-manager-v'+require('../package.json').version+'.json');
 const posix = p => p.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, d) => '/' + d.toLowerCase());
 const quote = s => "'" + s.replace(/'/g, "'\\''") + "'";
 function write(p, value) { fs.mkdirSync(path.dirname(p), {recursive:true}); fs.writeFileSync(p, value); fs.chmodSync(p,0o755); }
@@ -24,14 +24,14 @@ function fixture(t) {
   if (process.platform === 'win32') {
     // Windows execution is not controlled by POSIX permission bits.
     write(path.join(bin,'chmod'), '#!/bin/sh\nexit 0\n');
-    write(path.join(bin,'unzip'), '#!/bin/sh\ncase "$1" in -p) shift; exec tar -xOf "$@" ;; -tq) exec tar -tf "$2" >/dev/null ;; *) exit 2 ;; esac\n');
+    write(path.join(bin,'unzip'), '#!/bin/sh\ncase "$1" in -v) printf "Info-ZIP compatible Windows test adapter\\n" ;; -p) shift; exec tar -xOf "$@" ;; -tq) exec tar -xOf "$2" >/dev/null ;; *) exit 2 ;; esac\n');
     write(path.join(bin,'sha256sum'), '#!/bin/sh\nexec ' + quote(posix(process.execPath)) + ' ' + quote(posix(path.join(__dirname,'sha256.cjs'))) + ' "$@"\n');
   }
   return {root,bin,installer};
 }
 function run(f, profile='test', extra={}) {
   const env={...process.env,CONTAINER_ROOT:posix(f.root),SERVER_PROFILE:profile,SERVER_PORT:'25565',SERVER_MEMORY:'1024',ACCEPT_EULA:'false',MULTI_DRY_RUN:'true',...extra};
-  env.PATH=[f.bin,process.env.SH_BIN && path.dirname(process.env.SH_BIN),process.env.PATH].filter(Boolean).join(path.delimiter);
+  env.PATH=f.runtimePath || [f.bin,process.env.SH_BIN && path.dirname(process.env.SH_BIN),process.env.PATH].filter(Boolean).join(path.delimiter);
   return shell(path.join(f.root,'launcher.sh'),env);
 }
 function shell(file,env) {
@@ -74,4 +74,13 @@ function zip(p,name,content) {
   write(p,Buffer.concat([local,filename,bytes,central,filename,end]));
 }
 function ok(r) { assert.equal(r.status,0,r.output); }
-module.exports={fs,path,cp,assert,repo,eggPath,posix,quote,write,fixture,run,shell,profile,java,snapshot,zip,ok};
+function onlyTools(f,names,overrides={}) {
+  const dir=path.join(f.root,'restricted-bin');fs.mkdirSync(dir);
+  for(const name of names) {
+    const found=overrides[name] || cp.spawnSync(process.env.SH_BIN||'sh',['-c','command -v '+name],{encoding:'utf8',env:{...process.env,PATH:[process.env.SH_BIN&&path.dirname(process.env.SH_BIN),process.env.PATH].filter(Boolean).join(path.delimiter)}}).stdout.trim();
+    assert.ok(found,'Test prerequisite missing: '+name);
+    write(path.join(dir,name),'#!/bin/sh\nexec '+quote(posix(found))+' "$@"\n');
+  }
+  f.runtimePath=dir;
+}
+module.exports={fs,path,cp,assert,repo,eggPath,posix,quote,write,fixture,run,shell,profile,java,snapshot,zip,ok,onlyTools};

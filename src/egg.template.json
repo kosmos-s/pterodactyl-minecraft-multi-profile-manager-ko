@@ -1,11 +1,11 @@
 {
-  "_comment": "Pterodactyl Minecraft Multi-Profile Manager v2.2.0. Stable release with SERVER_MEMORY=0 support, imported-server detection from logs/versions, automatic Java selection, Unicode profile names, and per-profile switch backups.",
+  "_comment": "Pterodactyl Minecraft Multi-Profile Manager v2.2.1. Reliability fixes with JDK metadata fallback, script JVM argument normalization and CRC-verified initial downloads. Live Minecraft acceptance remains separate.",
   "meta": {
     "version": "PTDL_v2",
     "update_url": null
   },
   "exported_at": "2026-08-22T17:30:00+09:00",
-  "name": "Minecraft Multi-Profile Manager v2.2.0",
+  "name": "Minecraft Multi-Profile Manager v2.2.1",
   "author": "local@example.com",
   "description": "Store many Minecraft servers under /home/container/servers and run exactly one at a time on a single Pterodactyl allocation. Supports Unicode profile names, profile.conf overrides, server/Minecraft version detection, automatic Java runtime selection and caching, safe profile validation, Primary Allocation port enforcement, and per-profile switch backups.",
   "features": [

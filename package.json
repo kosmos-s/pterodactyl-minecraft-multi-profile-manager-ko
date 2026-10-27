@@ -1,5 +1,6 @@
 {
   "name": "pterodactyl-minecraft-multi-profile-manager-ko",
+  "version": "2.2.1",
   "private": true,
   "scripts": {
     "build": "node tools/build-egg.cjs",

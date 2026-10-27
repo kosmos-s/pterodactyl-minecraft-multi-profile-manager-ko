@@ -4,7 +4,7 @@ set -eu
 ROOT="/mnt/server"
 PROFILE_ROOT="${ROOT}/servers"
 DEFAULT_DIR="${PROFILE_ROOT}/default"
-USER_AGENT="Pterodactyl-Multi-Profile/2.2.0 (https://github.com/kosmos-s/pterodactyl-minecraft-multi-profile-manager-ko)"
+USER_AGENT="Pterodactyl-Multi-Profile/2.2.1 (https://github.com/kosmos-s/pterodactyl-minecraft-multi-profile-manager-ko)"
 
 mkdir -p "$DEFAULT_DIR" "${ROOT}/profile-backups" "${ROOT}/.multi-profile-state" "${ROOT}/.multijava"
 
@@ -24,6 +24,7 @@ SERVER_SCRIPT=run.sh
 JAVA_ARGS=
 XMS_MB=128
 MEMORY_PERCENT=95
+SCRIPT_MEMORY_MODE=manager
 # Uncomment to override the Startup backup defaults for this profile.
 # BACKUP_ON_SWITCH=true
 # BACKUP_KEEP=5
@@ -42,6 +43,7 @@ SERVER_SCRIPT=run.sh
 JAVA_ARGS=
 XMS_MB=128
 MEMORY_PERCENT=95
+SCRIPT_MEMORY_MODE=manager
 # Uncomment to override the Startup backup defaults for this profile.
 # BACKUP_ON_SWITCH=true
 # BACKUP_KEEP=5
@@ -73,17 +75,34 @@ if ! find "$DEFAULT_DIR" -maxdepth 1 -type f -name '*.jar' | grep -q .; then
         [ -n "$DOWNLOAD_URL" ] || { echo "[Installer] Could not find a stable Paper build." >&2; exit 1; }
     fi
     echo "[Installer] Installing Paper ${FOUND_VERSION} into servers/default"
-    command -v unzip >/dev/null 2>&1 || { echo "[Installer] unzip is required to validate the downloaded JAR." >&2; exit 1; }
+    if ! unzip -v 2>&1 | grep -qi 'Info-ZIP'; then
+        echo "[Installer] Installing Info-ZIP unzip for full CRC validation."
+        if ! command -v apk >/dev/null 2>&1 || ! apk add --no-cache unzip; then
+            echo "[Installer] Info-ZIP unzip is required for CRC validation; install it before retrying." >&2; exit 1
+        fi
+        unzip -v 2>&1 | grep -qi 'Info-ZIP' || { echo "[Installer] Info-ZIP unzip is still unavailable." >&2; exit 1; }
+    fi
     if [ -n "$DOWNLOAD_SHA256" ]; then
         printf '%s\n' "$DOWNLOAD_SHA256" | grep -Eq '^[0-9a-fA-F]{64}$' || { echo "[Installer] Invalid SHA-256 value." >&2; exit 1; }
         command -v sha256sum >/dev/null 2>&1 || { echo "[Installer] sha256sum is required." >&2; exit 1; }
     fi
     TEMP_JAR="$(mktemp "${DEFAULT_DIR}/.server.download.XXXXXX")"
-    trap 'rm -f "$TEMP_JAR"' EXIT
+    download_pid=""
+    cleanup_download() {
+        if [ -n "$download_pid" ]; then
+            kill "$download_pid" 2>/dev/null || true
+            wait "$download_pid" 2>/dev/null || true
+        fi
+        rm -f "$TEMP_JAR"
+    }
+    trap cleanup_download EXIT
     trap 'exit 1' HUP INT TERM
-    if ! curl --fail --location --retry 3 --connect-timeout 20 -H "User-Agent: ${USER_AGENT}" -o "$TEMP_JAR" "$DOWNLOAD_URL"; then
+    curl --fail --location --retry 3 --connect-timeout 20 -H "User-Agent: ${USER_AGENT}" -o "$TEMP_JAR" "$DOWNLOAD_URL" &
+    download_pid=$!
+    if ! wait "$download_pid"; then
         echo "[Installer] JAR download failed; server.jar was not replaced." >&2; exit 1
     fi
+    download_pid=""
     if [ -n "$DOWNLOAD_SHA256" ]; then
         if ! printf '%s  %s\n' "$DOWNLOAD_SHA256" "$TEMP_JAR" | sha256sum -c -; then
             echo "[Installer] JAR checksum mismatch; server.jar was not replaced." >&2; exit 1
@@ -91,7 +110,7 @@ if ! find "$DEFAULT_DIR" -maxdepth 1 -type f -name '*.jar' | grep -q .; then
     else
         echo "[Installer] No custom SHA-256 supplied; checking archive integrity only."
     fi
-    if ! unzip -p "$TEMP_JAR" >/dev/null 2>&1; then
+    if ! unzip -tq "$TEMP_JAR" >/dev/null 2>&1; then
         echo "[Installer] Download is not a valid JAR/ZIP archive." >&2; exit 1
     fi
     mv "$TEMP_JAR" "${DEFAULT_DIR}/server.jar"
@@ -109,6 +128,6 @@ enable-query=false
 PROPERTIES
 fi
 
-echo "[Installer] Multi-Profile Manager v2 installed."
+echo "[Installer] Multi-Profile Manager v2.2.1 installed."
 echo "[Installer] Default profile: /home/container/servers/default"
 echo "[Installer] Change only SERVER_PROFILE in Startup to switch profiles."

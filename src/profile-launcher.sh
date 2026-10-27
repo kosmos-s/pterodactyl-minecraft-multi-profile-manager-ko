@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Pterodactyl Minecraft Multi-Profile Manager v2.2.0
+# Pterodactyl Minecraft Multi-Profile Manager v2.2.1
 # One Pterodactyl server + one allocation, many stored Minecraft profiles.
 
 CONTAINER_ROOT="${CONTAINER_ROOT:-/home/container}"
@@ -66,6 +66,7 @@ reset_profile_config() {
     CFG_JAVA_ARGS=""
     CFG_XMS_MB="128"
     CFG_MEMORY_PERCENT="95"
+    CFG_SCRIPT_MEMORY_MODE="manager"
     CFG_BACKUP_ON_SWITCH="$GLOBAL_BACKUP_ON_SWITCH"
     CFG_BACKUP_KEEP="$GLOBAL_BACKUP_KEEP"
     CFG_BACKUP_EXCLUDE_LOGS="true"
@@ -100,6 +101,7 @@ load_profile_config() {
             JAVA_ARGS) CFG_JAVA_ARGS="$value" ;;
             XMS_MB) CFG_XMS_MB="$value" ;;
             MEMORY_PERCENT) CFG_MEMORY_PERCENT="$value" ;;
+            SCRIPT_MEMORY_MODE) CFG_SCRIPT_MEMORY_MODE="$value" ;;
             BACKUP_ON_SWITCH) CFG_BACKUP_ON_SWITCH="$value" ;;
             BACKUP_KEEP) CFG_BACKUP_KEEP="$value" ;;
             BACKUP_EXCLUDE_LOGS) CFG_BACKUP_EXCLUDE_LOGS="$value" ;;
@@ -109,6 +111,7 @@ load_profile_config() {
 }
 
 validate_profile_config() {
+    case "$CFG_SCRIPT_MEMORY_MODE" in manager|script) ;; *) die "SCRIPT_MEMORY_MODE must be manager or script." ;; esac
     case "$CFG_SERVER_TYPE" in
         auto|paper|purpur|folia|spigot|vanilla|fabric|quilt|forge|neoforge|mohist|magma|arclight|generic) ;;
         *) die "Invalid SERVER_TYPE '$CFG_SERVER_TYPE' in profile.conf." ;;
@@ -145,6 +148,7 @@ SERVER_SCRIPT=run.sh
 JAVA_ARGS=
 XMS_MB=128
 MEMORY_PERCENT=95
+SCRIPT_MEMORY_MODE=manager
 # Uncomment to override the Startup backup defaults for this profile.
 # BACKUP_ON_SWITCH=true
 # BACKUP_KEEP=5
@@ -315,11 +319,28 @@ detect_version_from_libraries() {
     unique_version "$candidates"
 }
 
+read_jar_version_json() (
+    archive="$1"
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -p "$archive" version.json 2>/dev/null | head -c 8192
+    elif command -v jar >/dev/null 2>&1; then
+        archive="$(cd "$(dirname "$archive")" && pwd)/$(basename "$archive")"
+        meta_tmp="$(mktemp -d "${TMPDIR:-/tmp}/multi-profile-meta.XXXXXX")" || return 1
+        trap 'rm -rf "$meta_tmp"' EXIT
+        trap 'exit 1' HUP INT TERM
+        cd "$meta_tmp" || return 1
+        jar xf "$archive" version.json >/dev/null 2>&1 || return 1
+        [ -f version.json ] && head -c 8192 version.json
+    else
+        warn "JAR metadata unavailable: neither unzip nor JDK jar is installed. Set MINECRAFT_VERSION explicitly if logs or caches are stale."
+        return 1
+    fi
+)
+
 detect_version_from_jar_metadata() {
     jar="$1"
     [ -n "$jar" ] && [ -f "$jar" ] || return 1
-    command -v unzip >/dev/null 2>&1 || return 1
-    content="$(unzip -p "$jar" version.json 2>/dev/null | head -c 8192 || true)"
+    content="$(read_jar_version_json "$jar" || true)"
     [ -n "$content" ] || return 1
     v="$(printf '%s' "$content" | grep -Eo '"id"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*"([^"]+)"$/\1/' || true)"
     v="$(extract_version_from_text "$v")"
@@ -390,7 +411,7 @@ ensure_java() {
     tmp="${JAVA_ROOT}/.install-java-${version}-$$"; archive="${tmp}.tar.gz"
     rm -rf "$tmp" "$archive"; mkdir -p "$tmp"
     log "Java ${version} is not cached. Downloading Eclipse Temurin JRE (${arch})..."
-    if ! curl --fail --location --retry 3 --connect-timeout 20 -A "Pterodactyl-Multi-Profile/2.2.0 (local-server-manager)" -o "$archive" "$api"; then rm -rf "$tmp" "$archive"; die "Failed to download Java ${version} from Adoptium."; fi
+    if ! curl --fail --location --retry 3 --connect-timeout 20 -A "Pterodactyl-Multi-Profile/2.2.1 (local-server-manager)" -o "$archive" "$api"; then rm -rf "$tmp" "$archive"; die "Failed to download Java ${version} from Adoptium."; fi
     if ! tar -xzf "$archive" -C "$tmp"; then rm -rf "$tmp" "$archive"; die "Failed to extract Java ${version}."; fi
     found="$(find "$tmp" -type f -path '*/bin/java' | head -n 1 || true)"
     [ -n "$found" ] || { rm -rf "$tmp" "$archive"; die "Downloaded Java archive did not contain bin/java."; }
@@ -436,6 +457,43 @@ handle_profile_switch_backup() {
 
 save_active_profile_state() { mkdir -p "$STATE_ROOT"; printf '%s\n' "$PROFILE" > "${STATE_ROOT}/last_profile"; }
 
+normalize_script_java_args() {
+    # Tokenize without eval: keep quoted property values intact for HotSpot.
+    printf '%s\n' "$CFG_JAVA_ARGS" | awk '
+        function fail(message) { print message > "/dev/stderr"; bad=1; exit 1 }
+        function emit(raw, plain, first, last) {
+            if (raw == "") return
+            plain=raw; first=substr(raw,1,1); last=substr(raw,length(raw),1)
+            if ((first == "\"" || first == "\047") && last == first) plain=substr(raw,2,length(raw)-2)
+            if (pending != "") {
+                if (plain == "" || plain ~ /^-/) fail("JAVA_ARGS: missing value for " pending)
+                output=output separator pending "=" raw; separator=" "; pending=""; return
+            }
+            if (plain ~ /^@/ || plain ~ /^(-cp|-classpath|--class-path|-p|--module-path|--upgrade-module-path|-m|--module|-jar|--source)(=|$)/)
+                fail("JAVA_ARGS contains a launcher-only token: " plain ". Move classpath, launch targets and @argfiles into SERVER_SCRIPT.")
+            if (plain ~ /^(--add-opens|--add-exports|--add-reads|--add-modules|--limit-modules|--enable-native-access)$/) { pending=plain; return }
+            output=output separator raw; separator=" "
+        }
+        {
+            for (i=1;i<=length($0);i++) {
+                c=substr($0,i,1)
+                if (escaped) { word=word c; escaped=0; continue }
+                if (c == "\\" && quoted != "\047") { word=word c; escaped=1; continue }
+                if (quoted != "") { word=word c; if (c == quoted) quoted=""; continue }
+                if (c == "\"" || c == "\047") { quoted=c; word=word c; continue }
+                if (c ~ /[[:space:]]/) { emit(word); word=""; continue }
+                word=word c
+            }
+            if (quoted != "" || escaped) fail("JAVA_ARGS contains an unfinished quote or escape.")
+            emit(word); word=""
+        }
+        END {
+            if (bad) exit 1
+            if (pending != "") fail("JAVA_ARGS: missing value for " pending)
+            print output
+        }'
+}
+
 valid_profile_name "$PROFILE" || { printf '%s\n' "[Multi-Profile] Invalid SERVER_PROFILE '$PROFILE'." >&2; printf '%s\n' "[Multi-Profile] Allowed: Unicode letters/numbers (including Korean), dot, underscore, hyphen. No paths or spaces." >&2; exit 1; }
 PROFILE_DIR="${PROFILE_ROOT}/${PROFILE}"
 if [ ! -d "$PROFILE_DIR" ]; then printf '%s\n' "[Multi-Profile] ERROR: Profile '$PROFILE' does not exist." >&2; printf '%s\n' "[Multi-Profile] Available profiles:" >&2; list_profiles | sed 's/^/[Multi-Profile]   - /' >&2; exit 1; fi
@@ -445,6 +503,10 @@ validate_profile_config
 cd "$PROFILE_DIR"
 detect_server_type
 detect_launch_mode
+SCRIPT_JAVA_ARGS=""
+if [ "$DETECTED_LAUNCH_MODE" = "script" ]; then
+    SCRIPT_JAVA_ARGS="$(normalize_script_java_args)" || die "Invalid JAVA_ARGS for script mode. Use JVM options here; keep launcher-only options in SERVER_SCRIPT."
+fi
 detect_minecraft_version
 select_java_version
 server_mem="${SERVER_MEMORY:-0}"
@@ -452,6 +514,7 @@ case "$server_mem" in ''|*[!0-9]*) server_mem=0 ;; esac
 effective_xms_mb="$CFG_XMS_MB"; jvm_xmx_arg=""
 if [ "$server_mem" -gt 0 ]; then xmx_mb=$((server_mem * CFG_MEMORY_PERCENT / 100)); [ "$xmx_mb" -ge 64 ] || xmx_mb=64; if [ "$effective_xms_mb" -gt "$xmx_mb" ]; then effective_xms_mb="$xmx_mb"; fi; jvm_xmx_arg="-Xmx${xmx_mb}M"; memory_summary="Xms=${effective_xms_mb}M / Xmx=${xmx_mb}M (${CFG_MEMORY_PERCENT}% of ${server_mem}M allocation)"; else memory_summary="Xms=${effective_xms_mb}M / Xmx=JVM auto (Pterodactyl memory limit: Unlimited)"; fi
 printf '%s\n' "============================================================"
+log "Manager version  : 2.2.1"
 log "Profile          : $PROFILE (${PROFILE_NAME})"
 log "Server type      : $DETECTED_SERVER_TYPE"
 log "Minecraft version: $DETECTED_MINECRAFT_VERSION"
@@ -459,7 +522,11 @@ log "Java             : $SELECTED_JAVA_VERSION"
 log "Launch mode      : $DETECTED_LAUNCH_MODE"
 if [ "$DETECTED_LAUNCH_MODE" = "jar" ]; then log "Server jar       : $DETECTED_SERVER_JAR"; else log "Server script    : $CFG_SERVER_SCRIPT"; fi
 log "Primary port     : ${SERVER_PORT}"
-log "Memory           : ${memory_summary}"
+if [ "$DETECTED_LAUNCH_MODE" = "script" ] && [ "$CFG_SCRIPT_MEMORY_MODE" = "script" ]; then
+    log "Memory           : controlled by SERVER_SCRIPT/user_jvm_args.txt (SCRIPT_MEMORY_MODE=script)"
+else
+    log "Memory           : ${memory_summary}"
+fi
 printf '%s\n' "============================================================"
 if is_true "${MULTI_DRY_RUN:-false}"; then log "Dry-run enabled; no files changed, backups created, Java downloaded or server executed."; exit 0; fi
 write_default_profile_config_if_missing "$PROFILE_DIR"
@@ -477,8 +544,14 @@ save_active_profile_state
 if [ "$DETECTED_LAUNCH_MODE" = "script" ]; then
     # HotSpot reads _JAVA_OPTIONS after script/argfile options, including Java 8.
     # Preserve unrelated inherited options; manager profile options take precedence.
-    export _JAVA_OPTIONS="${_JAVA_OPTIONS:+${_JAVA_OPTIONS} }-Xms${effective_xms_mb}M${jvm_xmx_arg:+ ${jvm_xmx_arg}}${CFG_JAVA_ARGS:+ ${CFG_JAVA_ARGS}}"
-    log "Script JVM settings are supplied through _JAVA_OPTIONS."
+    script_options="$SCRIPT_JAVA_ARGS"
+    if [ "$CFG_SCRIPT_MEMORY_MODE" = "manager" ]; then
+        script_options="-Xms${effective_xms_mb}M${jvm_xmx_arg:+ ${jvm_xmx_arg}}${SCRIPT_JAVA_ARGS:+ ${SCRIPT_JAVA_ARGS}}"
+    fi
+    if [ -n "$script_options" ]; then
+        export _JAVA_OPTIONS="${_JAVA_OPTIONS:+${_JAVA_OPTIONS} }$script_options"
+        log "Script JVM settings are supplied through _JAVA_OPTIONS."
+    fi
     exec sh "./$CFG_SERVER_SCRIPT" nogui
 fi
 exec "$JAVA_BIN" -Xms"${effective_xms_mb}"M ${jvm_xmx_arg} ${CFG_JAVA_ARGS} -Dterminal.jline=false -Dterminal.ansi=true -jar "$DETECTED_SERVER_JAR" nogui

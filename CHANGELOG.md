@@ -1,6 +1,15 @@
 # 변경 내역
 
-## Unreleased
+## v2.2.1 (Unreleased)
+
+- unzip이 없는 기본 Java 이미지에서 JDK jar로 메타데이터를 읽고, 두 도구 모두 없으면 경고
+- script 모드의 모듈 옵션 공백 형식 정규화와 런처 전용 인수 사전 차단
+- SCRIPT_MEMORY_MODE=script로 모드팩의 Xms/Xmx 정책 유지 가능
+- Alpine 설치기에 CRC를 검사하는 Info-ZIP 확보 및 설치기 셸 단독 TERM 시 curl 종료
+- 실제 yolk/Alpine 이미지 CI 추가, Update Egg·재설치·LF 줄바꿈 안내 보완
+- 콘솔에 Manager version 2.2.1 표시 및 새 Egg 파일 제공
+
+호환성: 여러 캐시/라이브러리 버전이 남은 프로필은 MINECRAFT_VERSION 지정이 필요할 수 있습니다. script 모드 기본 메모리 정책은 manager이며 기존 모드팩 설정을 유지하려면 SCRIPT_MEMORY_MODE=script를 지정하세요.
 
 - Fabric/Paperclip JAR 후보 중복 집계 수정
 - Forge/NeoForge script 모드에 프로필 JVM 옵션 전달
