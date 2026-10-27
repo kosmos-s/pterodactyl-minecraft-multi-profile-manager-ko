@@ -458,7 +458,7 @@ handle_profile_switch_backup() {
 save_active_profile_state() { mkdir -p "$STATE_ROOT"; printf '%s\n' "$PROFILE" > "${STATE_ROOT}/last_profile"; }
 
 normalize_script_java_args() {
-    # Tokenize without eval: keep quoted property values intact for HotSpot.
+    # HotSpot recognizes quotes but treats backslashes literally; do not use shell escaping.
     printf '%s\n' "$CFG_JAVA_ARGS" | awk '
         function fail(message) { print message > "/dev/stderr"; bad=1; exit 1 }
         function emit(raw, plain, first, last) {
@@ -477,14 +477,12 @@ normalize_script_java_args() {
         {
             for (i=1;i<=length($0);i++) {
                 c=substr($0,i,1)
-                if (escaped) { word=word c; escaped=0; continue }
-                if (c == "\\" && quoted != "\047") { word=word c; escaped=1; continue }
                 if (quoted != "") { word=word c; if (c == quoted) quoted=""; continue }
                 if (c == "\"" || c == "\047") { quoted=c; word=word c; continue }
                 if (c ~ /[[:space:]]/) { emit(word); word=""; continue }
                 word=word c
             }
-            if (quoted != "" || escaped) fail("JAVA_ARGS contains an unfinished quote or escape.")
+            if (quoted != "") fail("JAVA_ARGS contains an unfinished quote.")
             emit(word); word=""
         }
         END {

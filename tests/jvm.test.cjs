@@ -27,3 +27,15 @@ test('script memory mode preserves an argfile heap smaller than configured Xms',
   write(path.join(dir,'run.sh'),'#!/bin/sh\nexec "$JAVA_HOME/bin/java" @user_jvm_args.txt Probe.java\n');
   const r=run(f,'test',{MULTI_DRY_RUN:'false',SERVER_MEMORY:'0'});ok(r);assert.match(r.output,/HEAP_MB=512/);
 });
+for(const [label,args,want] of [
+  ['trailing literal backslash','-Dreview.probe=end\\','end\\'],
+  ['quoted Windows-style path','-Dreview.probe="C:\\path\\"','C:\\path\\']
+]) {
+  test('script JVM property preserves '+label,{skip:!realJava?'Set JAVA_BIN_REAL':false},t=>{
+    const f=fixture(t),dir=profile(f,'test','SERVER_TYPE=forge\nLAUNCH_MODE=script\nJAVA_ARGS='+args+'\n');
+    write(path.join(f.root,'.multijava','temurin-21','bin','java'),'#!/bin/sh\nexec '+quote(posix(realJava))+' "$@"\n');
+    write(path.join(dir,'Probe.java'),'class Probe { public static void main(String[] args) { System.out.println("PROBE=" + System.getProperty("review.probe")); } }\n');
+    write(path.join(dir,'run.sh'),'#!/bin/sh\nexec "$JAVA_HOME/bin/java" Probe.java\n');
+    const r=run(f,'test',{MULTI_DRY_RUN:'false'});ok(r);assert.ok(r.output.includes('PROBE='+want),r.output);
+  });
+}

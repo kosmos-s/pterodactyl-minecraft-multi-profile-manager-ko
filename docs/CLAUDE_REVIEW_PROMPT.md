@@ -5,6 +5,8 @@
 PR: https://github.com/kosmos-s/pterodactyl-minecraft-multi-profile-manager-ko/pull/1
 비교 기준: 79d6f13405d14fdaa451cda312f270800d5ef498
 비교 범위: 기준 커밋부터 수정 브랜치 HEAD까지의 전체 diff
+현재 수정판은 v2.2.1이고 대상 Egg는 egg/egg-minecraft-multi-profile-manager-v2.2.1.json이야. 기존 v2.2.0 파일은 과거 릴리스로 보존돼 있어.
+이전 리뷰 이후 후속 변경만 보려면 d3193506f6741677504939a8e7af8fca75ac0656부터 HEAD까지 비교하고 docs/REVIEW-FOLLOWUP.md도 확인해줘.
 
 목표는 Pterodactyl 서버 하나에서 Minecraft 프로필 하나만 실행하는 기존 구조를 유지하면서 런처의 결함과 설치 실패 처리를 개선하는 것이야. 우선 읽기 전용으로 검토하고, 수정이나 운영 서버 배포는 하지 마.
 
@@ -19,6 +21,9 @@ PR: https://github.com/kosmos-s/pterodactyl-minecraft-multi-profile-manager-ko/p
 6. Paper 또는 커스텀 JAR을 임시 파일에 받고, 체크섬과 ZIP 검증을 통과한 뒤에만 server.jar로 옮기는지. 실패·신호 종료·재설치 시 기존 파일과 임시 파일을 확인해줘.
 7. src/의 소스와 생성된 Egg JSON이 일치하며, Egg 하나만 Import해도 동작하는지.
 8. README, 마이그레이션, 복원 안내가 실제 동작과 맞는지.
+9. unzip이 없는 실제 Java 이미지에서 JDK jar fallback이 동작하고 임시 추출 파일을 정리하는지.
+10. script JAVA_ARGS의 모듈 옵션 정규화, 인용/백슬래시 보존, 런처 전용 인수 차단과 SCRIPT_MEMORY_MODE=script 선택이 맞는지.
+11. 실제 Alpine 설치기가 Info-ZIP을 확보해 stored 항목 CRC를 검사하고, 설치기 셸에만 TERM을 보내도 curl과 임시 파일을 정리하는지.
 
 검증:
 - Node.js 22 이상과 POSIX sh, jq, unzip, sha256sum, tar가 있는 Linux 환경에서 npm run check와 npm test를 실행해줘.

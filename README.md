@@ -185,7 +185,7 @@ Forge/NeoForge의 `LAUNCH_MODE=script`에서는 기본 `SCRIPT_MEMORY_MODE=manag
 
 ### script 모드 JAVA_ARGS
 
-`--add-opens 값`, `--add-exports 값`, `--add-reads 값`, `--add-modules 값`, `--limit-modules 값`, `--enable-native-access 값`은 VM이 읽을 수 있는 `--옵션=값`으로 정규화합니다. 해당 옵션을 지원하는 Java 버전이 필요하며, 인용된 `-Dname="two words"` 값은 보존합니다.
+`--add-opens 값`, `--add-exports 값`, `--add-reads 값`, `--add-modules 값`, `--limit-modules 값`, `--enable-native-access 값`은 VM이 읽을 수 있는 `--옵션=값`으로 정규화합니다. 해당 옵션을 지원하는 Java 버전이 필요하며, 인용된 `-Dname="two words"` 값은 보존합니다. HotSpot의 환경 인수 규칙에 맞춰 백슬래시는 문자 그대로 보존하며 셸 이스케이프를 적용하지 않습니다.
 
 `-cp`, `--class-path`, `--module-path`, `-jar`, `--module`, `--source`, `@argfile` 등 런처 전용 인수는 `JAVA_ARGS`에서 지원하지 않습니다. 실제 실행을 바꾸는 이 인수들은 `SERVER_SCRIPT`의 Java 명령으로 옮기세요. 런처는 실행 전에 설명과 함께 중단합니다. jar 모드의 기존 인수 처리는 유지합니다.
 
