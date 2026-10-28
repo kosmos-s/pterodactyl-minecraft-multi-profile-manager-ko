@@ -1,0 +1,104 @@
+{
+  "_comment": "Pterodactyl Minecraft Multi-Profile Manager v2.2.1. Reliability fixes with JDK metadata fallback, script JVM argument normalization and CRC-verified initial downloads. Live Minecraft acceptance remains separate.",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2026-08-22T17:30:00+09:00",
+  "name": "Minecraft Multi-Profile Manager v2.2.1",
+  "author": "local@example.com",
+  "description": "Store many Minecraft servers under /home/container/servers and run exactly one at a time on a single Pterodactyl allocation. Supports Unicode profile names, profile.conf overrides, server/Minecraft version detection, automatic Java runtime selection and caching, safe profile validation, Primary Allocation port enforcement, and per-profile switch backups.",
+  "features": [
+    "pid_limit"
+  ],
+  "docker_images": {
+    "Java 25": "ghcr.io/pterodactyl/yolks:java_25"
+  },
+  "file_denylist": [],
+  "startup": "sh /home/container/profile-launcher.sh",
+  "config": {
+    "files": "{}",
+    "startup": "{\"done\":\"Done (\"}",
+    "logs": "{}",
+    "stop": "stop"
+  },
+  "scripts": {
+    "installation": {
+      "script": "@INSTALL_SCRIPT@",
+      "container": "ghcr.io/pterodactyl/installers:alpine",
+      "entrypoint": "ash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Server Profile",
+      "description": "Folder name under /home/container/servers to run. Unicode letters and numbers are supported (for example: 마크서버). Stop the server, change this value, then start again.",
+      "env_variable": "SERVER_PROFILE",
+      "default_value": "default",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|regex:/^[\\p{L}\\p{N}][\\p{L}\\p{N}._-]*$/u|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "Accept Minecraft EULA",
+      "description": "Set true only if you accept the Minecraft EULA. Applied to the selected profile.",
+      "env_variable": "ACCEPT_EULA",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Automatic Backup On Profile Switch",
+      "description": "Global fallback. Individual profile.conf files can override BACKUP_ON_SWITCH.",
+      "env_variable": "AUTO_BACKUP_ON_SWITCH",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Backup Retention",
+      "description": "Default number of backups kept per profile. profile.conf can override BACKUP_KEEP.",
+      "env_variable": "BACKUP_KEEP",
+      "default_value": "5",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:0|max:100",
+      "field_type": "text"
+    },
+    {
+      "name": "Initial Paper Version",
+      "description": "Used only when the Egg installer creates servers/default. Use latest or an exact version.",
+      "env_variable": "MINECRAFT_VERSION",
+      "default_value": "latest",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:32",
+      "field_type": "text"
+    },
+    {
+      "name": "Custom Initial Download URL",
+      "description": "Optional admin-only jar URL for initial servers/default creation.",
+      "env_variable": "DL_PATH",
+      "default_value": "",
+      "user_viewable": false,
+      "user_editable": false,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Custom Initial Download SHA-256",
+      "description": "Optional admin-only SHA-256 for DL_PATH. Official Paper downloads always use the API checksum.",
+      "env_variable": "DL_SHA256",
+      "default_value": "",
+      "user_viewable": false,
+      "user_editable": false,
+      "rules": "nullable|regex:/^[a-fA-F0-9]{64}$/",
+      "field_type": "text"
+    }
+  ]
+}
