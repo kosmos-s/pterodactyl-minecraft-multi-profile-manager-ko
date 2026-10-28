@@ -1,7 +1,5 @@
 # Pterodactyl Minecraft Multi-Profile Manager v2.2.1
 
-> 영문 저장소: https://github.com/kosmos-s/pterodactyl-minecraft-multi-profile-manager
-
 Pterodactyl 서버 **1개 + Primary Allocation 1개** 안에 여러 Minecraft 서버 폴더를 보관하고, 필요한 프로필 하나만 선택해서 실행하는 Egg입니다.
 
 여러 월드, 모드팩, 테스트 서버, 예전 서버를 보관하지만 각 서버마다 별도의 Pterodactyl Allocation을 만들고 싶지 않은 홈서버/소규모 서버 운영 환경을 위해 만들었습니다.
