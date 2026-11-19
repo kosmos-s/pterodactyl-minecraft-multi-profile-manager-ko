@@ -1,14 +1,15 @@
 const {test}=require('node:test');
 const crypto=require('node:crypto');
-const {fs,path,cp,assert,repo,posix,quote,write,fixture,shell,zip,ok}=require('./helpers.cjs');
+const {fs,path,cp,assert,repo,posix,quote,write,fixture,shell,zip,ok,fixtureEnv,findTool}=require('./helpers.cjs');
 function setup(t) {
   const f=fixture(t);
   const jar=path.join(f.root,'download.jar');
   zip(jar,'version.json','{"id":"1.21.1"}');
   write(path.join(f.bin,'curl'),'#!/bin/sh\nexec '+quote(posix(process.execPath))+' '+quote(posix(path.join(__dirname,'curl-fixture.cjs')))+' "$@"\n');
   write(path.join(f.root,'installer.sh'),f.installer.replace('ROOT="/mnt/server"','ROOT='+quote(posix(f.root))));
-  f.env={...process.env,PATH:[f.bin,process.env.SH_BIN&&path.dirname(process.env.SH_BIN),process.env.PATH].filter(Boolean).join(path.delimiter),
-    DL_PATH:'https://example.invalid/server.jar',MINECRAFT_VERSION:'latest',FIXTURE_JAR:jar,CURL_MODE:'good'};
+  f.env=fixtureEnv(f,{
+    DL_PATH:'https://example.invalid/server.jar',MINECRAFT_VERSION:'latest',FIXTURE_JAR:jar,CURL_MODE:'good'
+  });
   f.hash=crypto.createHash('sha256').update(fs.readFileSync(jar)).digest('hex');
   return f;
 }
@@ -97,9 +98,9 @@ test('existing server JAR is preserved during reinstall',t=>{
   assert.equal(fs.readFileSync(props,'utf8'),'motd=Keep this motd\n');
   assert.notEqual(fs.readFileSync(path.join(f.root,'profile-launcher.sh'),'utf8'),'old launcher');
 });
-const jq=cp.spawnSync(process.env.SH_BIN||'sh',['-c','command -v jq'],{encoding:'utf8'});
+const jq=findTool('jq');
 for(const mismatch of [false,true]) {
-  test('official Paper checksum '+(mismatch?'mismatch blocks install':'allows verified install'),{skip:jq.status!==0?'jq is required; covered in Linux CI':false},t=>{
+  test('official Paper checksum '+(mismatch?'mismatch blocks install':'allows verified install'),{skip:!jq?'jq is required; covered in Linux CI':false},t=>{
     const f=setup(t),r=install(f,{DL_PATH:'',FIXTURE_SHA:mismatch?'0'.repeat(64):f.hash});
     if(mismatch) {assert.notEqual(r.status,0);noFinalJar(f);} else ok(r);
   });
